@@ -24,4 +24,16 @@ export interface ShoppingItem {
   isBought: boolean;
   inventoryId?: string; // 在庫アイテムと紐付いている場合
   createdAt: number;
+  recipeSource?: string; // どの料理から追加されたか
+}
+
+// 料理から提案された食材候補
+export interface SuggestedIngredient {
+  name: string;
+  quantity: number;
+  unit: string;
+  inStock: boolean;        // 在庫に存在するか
+  stockSufficient: boolean; // 在庫が十分（thresholdを超えているか）
+  inventoryId?: string;    // 紐づく在庫アイテムのID
+  selected: boolean;       // ユーザーが選択しているか
 }

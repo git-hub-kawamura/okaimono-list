@@ -9,19 +9,22 @@
   html {
     -webkit-text-size-adjust: 100%;
     touch-action: manipulation;
-  }
-  
-  body {
-    @apply antialiased overflow-x-hidden;
-    overscroll-behavior-y: none; /* 防止下拉刷新（可选，根据需求） */
+    color-scheme: dark;
   }
 
-  /* 強制的に入力フォームのフォントサイズを16px以上に設定（iOSの自動ズーム防止） */
+  body {
+    @apply antialiased overflow-x-hidden;
+    overscroll-behavior-y: none;
+    background-color: #0f0f0f;
+    color: #f0f0f0;
+  }
+
+  /* iOSの自動ズーム防止 */
   input, select, textarea {
     font-size: 16px !important;
   }
 }
 
 .pb-safe {
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: max(env(safe-area-inset-bottom), 16px);
 }

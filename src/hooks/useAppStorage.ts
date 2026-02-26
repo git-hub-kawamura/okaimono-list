@@ -4,7 +4,8 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { InventoryItem, ShoppingItem } from '../types';
+import { GoogleGenAI } from '@google/genai';
+import { InventoryItem, ShoppingItem, SuggestedIngredient } from '../types';
 
 const STORAGE_KEY_INVENTORY = 'family_inventory_v1';
 const STORAGE_KEY_SHOPPING = 'family_shopping_v1';
@@ -102,6 +103,20 @@ export function useAppStorage() {
     setShoppingList(prev => [...prev, newItem]);
   };
 
+  const addShoppingItems = (items: { name: string; quantity: number; unit: string; inventoryId?: string; recipeSource?: string }[]) => {
+    const newItems: ShoppingItem[] = items.map(item => ({
+      id: crypto.randomUUID(),
+      name: item.name,
+      quantity: item.quantity,
+      unit: item.unit,
+      isBought: false,
+      inventoryId: item.inventoryId,
+      recipeSource: item.recipeSource,
+      createdAt: Date.now(),
+    }));
+    setShoppingList(prev => [...prev, ...newItems]);
+  };
+
   const toggleBought = (id: string) => {
     setShoppingList(prev => prev.map(item => {
       if (item.id === id) {
@@ -129,6 +144,67 @@ export function useAppStorage() {
     setShoppingList(prev => prev.filter(item => !item.isBought));
   };
 
+  // --- AI: 料理名から食材を提案 ---
+  const suggestIngredients = async (dishName: string): Promise<SuggestedIngredient[]> => {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) throw new Error('GEMINI_API_KEYが設定されていません');
+
+    const ai = new GoogleGenAI({ apiKey });
+
+    const inventoryInfo = inventory.map(item => ({
+      name: item.name,
+      quantity: item.quantity,
+      unit: item.unit,
+      threshold: item.threshold,
+      id: item.id,
+    }));
+
+    const prompt = `
+あなたは料理の食材提案AIです。
+以下の料理を作るために必要な食材を提案してください。
+
+料理名: ${dishName}
+
+現在の在庫情報:
+${JSON.stringify(inventoryInfo, null, 2)}
+
+以下のJSON形式で返してください。他のテキストは一切含めないでください：
+{
+  "ingredients": [
+    {
+      "name": "食材名（日本語）",
+      "quantity": 数値,
+      "unit": "単位（個/本/袋/ml/g等）",
+      "inStock": true/false（在庫情報にこの食材が存在するか）,
+      "stockSufficient": true/false（在庫が十分か：quantityがthresholdより多ければtrue）,
+      "inventoryId": "在庫IDまたはnull"
+    }
+  ]
+}
+
+注意：
+- 一般的な家庭料理に必要な食材を過不足なくリストアップしてください
+- 調味料（醤油、みりん、塩、砂糖など）も含めてください
+- inStockは在庫情報の食材名と照合して判定してください（部分一致でもOK）
+- stockSufficientはinStockがtrueの場合にのみ、quantityがthresholdより大きければtrueにしてください
+`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.0-flash',
+      contents: prompt,
+    });
+
+    const text = response.text ?? '';
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('AIの応答を解析できませんでした');
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    return parsed.ingredients.map((ing: Omit<SuggestedIngredient, 'selected'>) => ({
+      ...ing,
+      selected: !ing.stockSufficient,
+    }));
+  };
+
   return {
     inventory,
     shoppingList,
@@ -136,8 +212,10 @@ export function useAppStorage() {
     updateInventoryItem,
     deleteInventoryItem,
     addShoppingItem,
+    addShoppingItems,
     toggleBought,
     deleteShoppingItem,
     clearBoughtItems,
+    suggestIngredients,
   };
 }
