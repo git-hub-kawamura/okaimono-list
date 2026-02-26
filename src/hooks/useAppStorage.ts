@@ -146,7 +146,7 @@ export function useAppStorage() {
 
   // --- AI: 料理名から食材を提案 ---
   const suggestIngredients = async (dishName: string): Promise<SuggestedIngredient[]> => {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
     if (!apiKey) throw new Error('GEMINI_API_KEYが設定されていません');
 
     const ai = new GoogleGenAI({ apiKey });
