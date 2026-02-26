@@ -1,0 +1,5 @@
+{
+  "name": "買い物リスト",
+  "description": "在庫が減ると自動で買い物リストに追加される、家庭向け在庫管理アプリ",
+  "requestFramePermissions": []
+}
