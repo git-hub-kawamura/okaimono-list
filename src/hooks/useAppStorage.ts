@@ -4,7 +4,6 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { GoogleGenAI } from '@google/genai';
 import { InventoryItem, ShoppingItem, SuggestedIngredient } from '../types';
 
 const STORAGE_KEY_INVENTORY = 'family_inventory_v1';
@@ -149,8 +148,6 @@ export function useAppStorage() {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
     if (!apiKey) throw new Error('GEMINI_API_KEYが設定されていません');
 
-    const ai = new GoogleGenAI({ apiKey });
-
     const inventoryInfo = inventory.map(item => ({
       name: item.name,
       quantity: item.quantity,
@@ -175,13 +172,21 @@ export function useAppStorage() {
 - inventoryIdはinStockがtrueの場合に対応するidを設定、なければnull
 - 調味料も含めて網羅的にリストアップ`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      config: { responseMimeType: 'application/json' },
-    });
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseMimeType: 'application/json' },
+        }),
+      }
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error?.message ?? `APIエラー: ${res.status}`);
 
-    const text = response.text ?? '';
+    const text: string = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 
     // ```json ... ``` のコードブロックも含めて抽出
     const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
