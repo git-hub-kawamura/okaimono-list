@@ -159,48 +159,42 @@ export function useAppStorage() {
       id: item.id,
     }));
 
-    const prompt = `
-あなたは料理の食材提案AIです。
-以下の料理を作るために必要な食材を提案してください。
+    const prompt = `あなたは料理の食材提案AIです。以下の料理を作るために必要な食材をJSON形式のみで返してください。マークダウンや説明文は不要です。
 
 料理名: ${dishName}
 
-現在の在庫情報:
-${JSON.stringify(inventoryInfo, null, 2)}
+現在の在庫情報: ${JSON.stringify(inventoryInfo)}
 
-以下のJSON形式で返してください。他のテキストは一切含めないでください：
-{
-  "ingredients": [
-    {
-      "name": "食材名（日本語）",
-      "quantity": 数値,
-      "unit": "単位（個/本/袋/ml/g等）",
-      "inStock": true/false（在庫情報にこの食材が存在するか）,
-      "stockSufficient": true/false（在庫が十分か：quantityがthresholdより多ければtrue）,
-      "inventoryId": "在庫IDまたはnull"
-    }
-  ]
-}
+返却形式（このJSONのみ返すこと）:
+{"ingredients":[{"name":"食材名","quantity":1,"unit":"個","inStock":false,"stockSufficient":false,"inventoryId":null}]}
 
-注意：
-- 一般的な家庭料理に必要な食材を過不足なくリストアップしてください
-- 調味料（醤油、みりん、塩、砂糖など）も含めてください
-- inStockは在庫情報の食材名と照合して判定してください（部分一致でもOK）
-- stockSufficientはinStockがtrueの場合にのみ、quantityがthresholdより大きければtrueにしてください
-`;
+ルール:
+- nameは日本語
+- inStockは在庫情報に同じ食材名（部分一致可）があればtrue
+- stockSufficientはinStockがtrueかつquantityがthresholdより大きい場合のみtrue、それ以外はfalse
+- inventoryIdはinStockがtrueの場合に対応するidを設定、なければnull
+- 調味料も含めて網羅的にリストアップ`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.0-flash',
-      contents: prompt,
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      config: { responseMimeType: 'application/json' },
     });
 
     const text = response.text ?? '';
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('AIの応答を解析できませんでした');
+
+    // ```json ... ``` のコードブロックも含めて抽出
+    const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+    const jsonText = codeBlockMatch ? codeBlockMatch[1] : text;
+    const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error(`AIの応答を解析できませんでした: ${text.slice(0, 100)}`);
 
     const parsed = JSON.parse(jsonMatch[0]);
+    if (!Array.isArray(parsed.ingredients)) throw new Error('食材リストの形式が不正です');
+
     return parsed.ingredients.map((ing: Omit<SuggestedIngredient, 'selected'>) => ({
       ...ing,
+      inventoryId: ing.inventoryId ?? undefined,
       selected: !ing.stockSufficient,
     }));
   };
