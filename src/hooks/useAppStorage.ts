@@ -149,7 +149,7 @@ export function useAppStorage() {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
     if (!apiKey) throw new Error('GEMINI_API_KEYが設定されていません');
 
-    const ai = new GoogleGenAI({ apiKey, httpOptions: { apiVersion: 'v1' } });
+    const ai = new GoogleGenAI({ apiKey });
 
     const inventoryInfo = inventory.map(item => ({
       name: item.name,
@@ -176,7 +176,7 @@ export function useAppStorage() {
 - 調味料も含めて網羅的にリストアップ`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.0-flash',
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       config: { responseMimeType: 'application/json' },
     });
