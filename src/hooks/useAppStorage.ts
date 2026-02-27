@@ -145,8 +145,8 @@ export function useAppStorage() {
 
   // --- AI: 料理名から食材を提案 ---
   const suggestIngredients = async (dishName: string): Promise<SuggestedIngredient[]> => {
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    if (!apiKey) throw new Error('GEMINI_API_KEYが設定されていません');
+    const apiKey = import.meta.env.VITE_GROQ_API_KEY;
+    if (!apiKey) throw new Error('GROQ_API_KEYが設定されていません');
 
     const inventoryInfo = inventory.map(item => ({
       name: item.name,
@@ -173,24 +173,26 @@ export function useAppStorage() {
 - 調味料も含めて網羅的にリストアップ`;
 
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`,
+      'https://api.groq.com/openai/v1/chat/completions',
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
+          model: 'llama-3.3-70b-versatile',
+          messages: [{ role: 'user', content: prompt }],
+          response_format: { type: 'json_object' },
         }),
       }
     );
     const data = await res.json();
     if (!res.ok) throw new Error(data.error?.message ?? `APIエラー: ${res.status}`);
 
-    const text: string = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+    const text: string = data.choices?.[0]?.message?.content ?? '';
 
-    // ```json ... ``` のコードブロックも含めて抽出
-    const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-    const jsonText = codeBlockMatch ? codeBlockMatch[1] : text;
-    const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error(`AIの応答を解析できませんでした: ${text.slice(0, 100)}`);
 
     const parsed = JSON.parse(jsonMatch[0]);
