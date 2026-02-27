@@ -16,7 +16,7 @@ export default defineConfig(({ mode }) => {
     plugins: [react(), tailwindcss()],
     define: {
       // クライアント側で import.meta.env.VITE_GEMINI_API_KEY として使えるように設定
-      'import.meta.env.VITE_GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+      'import.meta.env.VITE_GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || process.env.GEMINI_API_KEY),
     },
     resolve: {
       alias: {
