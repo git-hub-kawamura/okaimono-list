@@ -24,7 +24,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
-      outDir: 'docs',
+      outDir: 'dist',
     },
     server: {
       // AI Studioのプレビュー環境用設定（編集時のチラつき防止）
